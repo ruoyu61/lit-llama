@@ -41,7 +41,7 @@ devices = 1
 
 # Hyperparameters
 learning_rate = 9e-3
-batch_size = 64 / devices
+batch_size = 32 / devices
 micro_batch_size = 4
 gradient_accumulation_iters = batch_size // micro_batch_size
 assert gradient_accumulation_iters > 0
@@ -78,7 +78,7 @@ def main(
         os.makedirs(out_dir, exist_ok=True)
 
     train_data, val_data = load_datasets(data_dir=data_dir)
-
+    print("Completed Load Dataset")
     config = LLaMAConfig(block_size=max_seq_length)
 
     if not os.path.isfile(pretrained_path):
@@ -87,7 +87,7 @@ def main(
             " Please follow the instructions in the README to download them."
         )
     checkpoint = torch.load(pretrained_path)
-
+    print("Completed Load checkpoint")
     with fabric.init_module():
         model = LLaMA(config)
         # strict=False because missing keys due to adapter weights not containted in state dict

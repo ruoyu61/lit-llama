@@ -139,10 +139,15 @@ class CausalSelfAttention(nn.Module):
             k = cache_k.index_copy(2, input_pos, k) # (B, nh, max_seq_length, hs)
             v = cache_v.index_copy(2, input_pos, v) # (B, nh, max_seq_length, hs)
             kv_cache = k, v
-
-        # efficient attention using Flash Attention CUDA kernels
-        # ↓ (B, nh, T, hs) @ (B, nh, T, hs).mT --> (B, nh, T, T) @ (B, nh, T, hs) --> (B, nh, T, hs)
-        y = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0, is_causal=mask is None) # (B, nh, T, hs)
+        
+        if input_pos is not None:
+            # efficient attention using Flash Attention CUDA kernels
+            # ↓ (B, nh, T, hs) @ (B, nh, T, hs).mT --> (B, nh, T, T) @ (B, nh, T, hs) --> (B, nh, T, hs)
+            y = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0, is_causal=mask is None) # (B, nh, T, hs)
+        else:
+            with torch.backends.cuda.sdp_kernel(enable_flash=False, enable_math=False, enable_mem_efficient=True):
+                y = F.scaled_dot_product_attention(q, k, v, attn_mask=None, dropout_p=0.0, is_causal=True) # (B, nh, T, hs)
+                print(f"Memory used: {torch.cuda.max_memory_reserved() / 1e9:.02f} GB")
 
         # "Adapters are applied to the topmost layers to better tune the language
         # representations with higher-level semantics".
